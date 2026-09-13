@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
 
 from .state import AgentState
 from .retrieval import retrieve
@@ -13,17 +12,17 @@ from .tools import calculator, get_system_status
 
 load_dotenv()
 
-tools = [
-    calculator,
-    get_system_status,
-]
+
+tools = {
+    "calculator": calculator,
+    "get_system_status": get_system_status,
+}
+
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-3.6-flash",
     api_key=os.environ["GEMINI_API_KEY"],
 )
-
-llm_with_tools = llm.bind_tools(tools)
 
 
 def retrieve_node(state: AgentState):
@@ -36,38 +35,124 @@ def researcher_node(state: AgentState):
     prompt = f"""
 You are the researcher sub-agent.
 
-Use the available tools when useful.
+Answer the user's query.
+
+You have access to these tools:
+
+1. calculator(expression)
+2. get_system_status(service)
+
+If a tool is required, respond ONLY with JSON:
+
+{{
+    "tool": "calculator",
+    "input": {{
+        "expression": "847 * 293"
+    }}
+}}
+
+OR:
+
+{{
+    "tool": "get_system_status",
+    "input": {{
+        "service": "api"
+    }}
+}}
+
+If no tool is required, respond normally.
 
 User query:
 {state["query"]}
 
 Retrieved context:
 {state["retrieved_context"]}
+
+Previous tool result:
+{state["tool_result"]}
 """
 
-    messages = [
-        HumanMessage(content=prompt)
-    ]
+    response = llm.invoke([HumanMessage(content=prompt)])
 
-    response = llm_with_tools.invoke(messages)
+    content = response.content
+
+    if isinstance(content, list):
+        content = "".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict)
+        )
 
     return {
-        "messages": messages + [response],
-        "research": response.content,
+        "research": content
     }
+
+
+def tool_node(state: AgentState):
+    research = state["research"]
+
+    # Simple parser for our demo tool protocol.
+    import json
+
+    try:
+        data = json.loads(research)
+    except json.JSONDecodeError:
+        return {
+            "tool_result": ""
+        }
+
+    tool_name = data.get("tool")
+    tool_input = data.get("input", {})
+
+    if tool_name not in tools:
+        return {
+            "tool_result": f"Unknown tool: {tool_name}"
+        }
+
+    try:
+        result = tools[tool_name].invoke(tool_input)
+
+        return {
+            "tool_result": str(result)
+        }
+
+    except Exception as e:
+        return {
+            "tool_result": f"Tool error: {e}"
+        }
+
+
+def route_after_research(state: AgentState):
+    import json
+
+    try:
+        data = json.loads(state["research"])
+    except json.JSONDecodeError:
+        return "reviewer"
+
+    if data.get("tool") in tools:
+        return "tools"
+
+    return "reviewer"
 
 
 def reviewer_node(state: AgentState):
     prompt = f"""
 You are the reviewer sub-agent.
 
-Review the research for correctness and relevance.
+Review the research and tool result for correctness.
 
 User query:
 {state["query"]}
 
 Research:
 {state["research"]}
+
+Tool result:
+{state["tool_result"]}
+
+Retrieved context:
+{state["retrieved_context"]}
 """
 
     response = llm.invoke(prompt)
@@ -87,6 +172,9 @@ Query:
 Research:
 {state["research"]}
 
+Tool result:
+{state["tool_result"]}
+
 Review:
 {state["review"]}
 """
@@ -103,14 +191,23 @@ def build_graph():
 
     graph.add_node("retrieval", retrieve_node)
     graph.add_node("researcher", researcher_node)
-    graph.add_node("tools", ToolNode(tools))
+    graph.add_node("tools", tool_node)
     graph.add_node("reviewer", reviewer_node)
     graph.add_node("answer", answer_node)
 
     graph.add_edge(START, "retrieval")
     graph.add_edge("retrieval", "researcher")
-    graph.add_edge("researcher", "tools")
-    graph.add_edge("tools", "reviewer")
+
+    graph.add_conditional_edges(
+        "researcher",
+        route_after_research,
+        {
+            "tools": "tools",
+            "reviewer": "reviewer",
+        },
+    )
+
+    graph.add_edge("tools", "researcher")
     graph.add_edge("reviewer", "answer")
     graph.add_edge("answer", END)
 
