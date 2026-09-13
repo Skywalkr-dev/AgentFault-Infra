@@ -1,0 +1,11 @@
+AgentFault is a framework for evaluating the reliability of AI agents.
+
+A trajectory records the sequence of events produced during an agent execution,
+including model calls, retrieval operations, tool calls, tool results,
+agent handoffs, errors, and the final outcome.
+
+Fault injection modifies a controlled part of an agent execution in order to
+produce a labeled faulty trajectory.
+
+AgentFault-500 is a dataset containing clean and fault-injected agent
+trajectories for evaluating agent failure detection and diagnosis.
