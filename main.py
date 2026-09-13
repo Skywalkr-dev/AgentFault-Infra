@@ -5,6 +5,7 @@ graph = build_graph()
 
 result = graph.invoke({
     "query": "What is AgentFault?",
+    "messages" : [],
     "retrieved_context": "",
     "tool_result": "",
     "research": "",
