@@ -20,33 +20,31 @@ events = [
         event_type="tool_call",
         step=2,
         agent="test-agent",
-        input={"tool": "calculator"},
-        output="42",
-        tool="calculator",
+        input={"location": "Chennai, India"},
+        output="Sunny",
+        tool="weather_tool",
         status="success",
     ),
 ]
 
 
 fault = Fault(
-    fault_type=FaultType.TOOL_TIMEOUT,
+    fault_type=FaultType.TOOL_WRONG_TOOL,
     step=2,
-    parameters={"timeout_seconds": 30},
+    parameters={
+        "original_tool": "weather_tool",
+        "injected_tool": "calculator_tool",
+    },
     seed=42,
 )
 
 injector = FaultInjector()
 injected = injector.inject(events, fault)
 
+assert events[1].tool == "weather_tool"
+assert injected[1].tool == "calculator_tool"
 
-assert events[1].status == "success"
-assert events[1].output == "42"
-
-assert injected[1].trajectory_id == "traj_test_fault_tool_timeout_step_2"
-assert injected[1].status == "error"
-assert injected[1].output == "Injected tool timeout"
-
-assert injected[1].metadata["injected_fault"]["type"] == "tool_timeout"
+assert injected[1].metadata["injected_fault"]["type"] == "TOOL_WRONG_TOOL"
 assert injected[1].metadata["injected_fault"]["step"] == 2
 assert injected[1].metadata["injected_fault"]["seed"] == 42
 

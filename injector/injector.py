@@ -40,20 +40,16 @@ class FaultInjector:
         event: TrajectoryEvent,
         fault: Fault,
     ) -> None:
-        if fault.fault_type == FaultType.TOOL_FAILURE:
-            event.status = "error"
-            event.output = "Injected tool failure"
+        if fault.fault_type == FaultType.TOOL_WRONG_ARGUMENT:
+            argument_name = fault.parameters["argument_name"]
+            injected_value = fault.parameters["injected_value"]
 
-        elif fault.fault_type == FaultType.TOOL_TIMEOUT:
-            event.status = "error"
-            event.output = "Injected tool timeout"
+            event.input[argument_name] = injected_value
 
-        elif fault.fault_type == FaultType.RETRIEVAL_FAILURE:
-            event.status = "error"
-            event.output = "Injected retrieval failure"
+        elif fault.fault_type == FaultType.TOOL_WRONG_TOOL:
+            injected_tool = fault.parameters["injected_tool"]
 
-        elif fault.fault_type == FaultType.MALFORMED_OUTPUT:
-            event.output = "Injected malformed output"
+            event.tool = injected_tool
 
         else:
             raise ValueError(
