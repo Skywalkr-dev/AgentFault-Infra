@@ -1,7 +1,5 @@
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
-from langchain_google_genai import ChatGoogleGenerativeAI
 from .state import AgentState
 from .retrieval import retrieve
 from .tools import calculator, get_system_status
