@@ -4,7 +4,6 @@ from injector.injector import FaultInjector
 
 
 generator = TrajectoryGenerator(seed=42)
-
 trajectory = generator.generate(
     trajectory_id="test_trajectory",
     task_id="test_task",
