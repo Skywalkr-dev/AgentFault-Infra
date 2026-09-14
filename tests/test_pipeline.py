@@ -11,7 +11,7 @@ trajectory = generator.generate(
 
 fault = Fault(
     fault_type=FaultType.TOOL_WRONG_TOOL,
-    step=4,
+    step=5,
     parameters={
         "operator": "REPLACE_TOOL",
         "original_tool": "calculator",
@@ -28,17 +28,17 @@ injected = injector.inject(
 )
 
 assert injected.trajectory_id == (
-    "test_trajectory_fault_TOOL_WRONG_TOOL_step_4"
+    "test_trajectory_fault_TOOL_WRONG_TOOL_step_5"
 )
 
 assert injected.fault_injected is True
 assert injected.fault_type == "TOOL_WRONG_TOOL"
-assert injected.origin_step == 4
+assert injected.origin_step == 5
 assert injected.source == "INJECTED"
 
 step = next(
     step for step in injected.steps
-    if step.step_index == 4
+    if step.step_index == 5
 )
 
 assert step.tool_name == "wrong_tool"
