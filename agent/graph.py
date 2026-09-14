@@ -1,16 +1,12 @@
-import os
-
-from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from langgraph.graph import StateGraph, START, END
-
+from langchain_google_genai import ChatGoogleGenerativeAI
 from .state import AgentState
 from .retrieval import retrieve
 from .tools import calculator, get_system_status
+from .llm import MockLLM
 
-
-load_dotenv()
 
 
 tools = {
@@ -19,10 +15,7 @@ tools = {
 }
 
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-3.6-flash",
-    api_key=os.environ["GEMINI_API_KEY"],
-)
+llm = MockLLM()
 
 def retrieve_node(state: AgentState):
     context = retrieve(state["query"])
@@ -163,7 +156,6 @@ def route_after_research(state: AgentState):
 
     return "reviewer"
 
-
 def reviewer_node(state: AgentState):
     prompt = f"""
 You are the reviewer sub-agent.
@@ -184,16 +176,26 @@ Retrieved context:
 """
 
     response = llm.invoke(prompt)
+
+    content = response.content
+
+    if isinstance(content, list):
+        content = "".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict)
+        )
+
     state["recorder"].record(
         "llm_call",
         agent="reviewer",
         input=prompt,
-       output=response.content,
+        output=content,
     )
-    return {
-        "review": response.content
-    }
 
+    return {
+        "review": content
+    }
 
 def answer_node(state: AgentState):
     prompt = f"""
@@ -213,16 +215,26 @@ Review:
 """
 
     response = llm.invoke(prompt)
+
+    content = response.content
+
+    if isinstance(content, list):
+        content = "".join(
+            block.get("text", "")
+            for block in content
+            if isinstance(block, dict)
+        )
+
     state["recorder"].record(
         "llm_call",
         agent="answer",
         input=prompt,
-        output=response.content,
+        output=content,
     )
-    return {
-        "answer": response.content
-    }
 
+    return {
+        "answer": content
+    }
 
 def build_graph():
     graph = StateGraph(AgentState)
