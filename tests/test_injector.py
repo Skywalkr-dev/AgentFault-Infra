@@ -36,11 +36,18 @@ fault = Fault(
 )
 
 injector = FaultInjector()
-
 injected = injector.inject(events, fault)
 
-print("Original:")
-print(events[1])
 
-print("\nInjected:")
-print(injected[1])
+assert events[1].status == "success"
+assert events[1].output == "42"
+
+assert injected[1].trajectory_id == "traj_test_fault_tool_timeout_step_2"
+assert injected[1].status == "error"
+assert injected[1].output == "Injected tool timeout"
+
+assert injected[1].metadata["injected_fault"]["type"] == "tool_timeout"
+assert injected[1].metadata["injected_fault"]["step"] == 2
+assert injected[1].metadata["injected_fault"]["seed"] == 42
+
+print("All injector tests passed.")

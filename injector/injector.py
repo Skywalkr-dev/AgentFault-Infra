@@ -12,11 +12,26 @@ class FaultInjector:
     ) -> list[TrajectoryEvent]:
         injected = deepcopy(events)
 
+        derived_id = (
+            f"{events[0].trajectory_id}"
+            f"_fault_{fault.fault_type.value}"
+            f"_step_{fault.step}"
+        )
+
         for event in injected:
+            event.trajectory_id = derived_id
+
             if event.step != fault.step:
                 continue
 
             self._apply_fault(event, fault)
+
+            event.metadata["injected_fault"] = {
+                "type": fault.fault_type.value,
+                "step": fault.step,
+                "parameters": fault.parameters,
+                "seed": fault.seed,
+            }
 
         return injected
 
