@@ -4,6 +4,7 @@ from agent.graph import build_graph
 from trajectory.events import TrajectoryRecorder
 from ingestion.client import send_trajectory
 
+
 graph = build_graph()
 
 trajectory_id = f"traj_{uuid4().hex[:8]}"
@@ -42,7 +43,6 @@ except Exception as e:
     print(f"Agent failed: {e}")
 
 finally:
-    recorder.save(f"trajectories/{trajectory_id}.jsonl")
     try:
         result = send_trajectory(recorder)
         print(f"Ingested: {result}")

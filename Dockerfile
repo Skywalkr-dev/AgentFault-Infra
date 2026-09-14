@@ -8,6 +8,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY agent/ agent/
 COPY trajectory/ trajectory/
+COPY ingestion/ ingestion/
 COPY data/ data/
 COPY main.py .
 

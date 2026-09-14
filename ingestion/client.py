@@ -1,9 +1,13 @@
-import json
-
+import os
 import requests
 
 
-def send_trajectory(recorder, url="http://localhost:8000/trajectories"):
+def send_trajectory(recorder):
+    url = os.getenv(
+        "INGESTION_URL",
+        "http://localhost:8000/trajectories",
+    )
+
     events = [event.to_dict() for event in recorder.events]
 
     payload = {
