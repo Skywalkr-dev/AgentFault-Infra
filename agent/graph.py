@@ -24,12 +24,19 @@ llm = ChatGoogleGenerativeAI(
     api_key=os.environ["GEMINI_API_KEY"],
 )
 
-
 def retrieve_node(state: AgentState):
-    return {
-        "retrieved_context": retrieve(state["query"])
-    }
+    context = retrieve(state["query"])
 
+    state["recorder"].record(
+        "retrieval",
+        input=state["query"],
+        output=context,
+        agent="retrieval",
+    )
+
+    return {
+        "retrieved_context": context
+    }
 
 def researcher_node(state: AgentState):
     prompt = f"""
@@ -83,6 +90,13 @@ Previous tool result:
             if isinstance(block, dict)
         )
 
+    state["recorder"].record(
+        "llm_call",
+        agent="researcher",
+        input=prompt,
+        output=content,
+    )
+
     return {
         "research": content
     }
@@ -110,7 +124,21 @@ def tool_node(state: AgentState):
         }
 
     try:
+        state["recorder"].record(
+            "tool_call",
+            agent="researcher",
+            tool=tool_name,
+            input=tool_input,
+        )
+
         result = tools[tool_name].invoke(tool_input)
+
+        state["recorder"].record(
+            "tool_result",
+            agent="researcher",
+            tool=tool_name,
+            output=str(result),
+        )
 
         return {
             "tool_result": str(result)
@@ -156,7 +184,12 @@ Retrieved context:
 """
 
     response = llm.invoke(prompt)
-
+    state["recorder"].record(
+        "llm_call",
+        agent="reviewer",
+        input=prompt,
+       output=response.content,
+    )
     return {
         "review": response.content
     }
@@ -180,7 +213,12 @@ Review:
 """
 
     response = llm.invoke(prompt)
-
+    state["recorder"].record(
+        "llm_call",
+        agent="answer",
+        input=prompt,
+        output=response.content,
+    )
     return {
         "answer": response.content
     }
