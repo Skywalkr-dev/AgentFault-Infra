@@ -1,5 +1,7 @@
 from typing import TypedDict
 
+from trajectory.events import TrajectoryRecorder
+
 
 class AgentState(TypedDict):
     query: str
@@ -8,3 +10,4 @@ class AgentState(TypedDict):
     research: str
     review: str
     answer: str
+    recorder: TrajectoryRecorder
