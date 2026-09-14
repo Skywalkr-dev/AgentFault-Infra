@@ -83,7 +83,6 @@ def _wrong_tool(
         "injected_tool": injected,
     }
 
-
 def _wrong_argument(
     trajectory: AgentFaultRecord,
     step: StepRecord,
