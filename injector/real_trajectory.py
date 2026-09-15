@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-from typing import Any
 
 from injector.schema import (
     AgentConfig,
@@ -34,9 +33,6 @@ def load_events(path: str | Path) -> list[TrajectoryEvent]:
 
 def events_to_record(
     events: list[TrajectoryEvent],
-    fault_type: str | None = None,
-    origin_step: int | None = None,
-    injection_params: dict[str, Any] | None = None,
 ) -> AgentFaultRecord:
 
     if not events:
@@ -44,9 +40,12 @@ def events_to_record(
 
     trajectory_id = events[0].trajectory_id
 
-    # Extract task/query from trajectory_start
     start_event = next(
-        (e for e in events if e.event_type == "trajectory_start"),
+        (
+            event
+            for event in events
+            if event.event_type == "trajectory_start"
+        ),
         None,
     )
 
@@ -55,12 +54,11 @@ def events_to_record(
     if start_event and start_event.input:
         task_id = str(start_event.input)
 
-    # Agents that actually participated
     agents = sorted(
         {
-            e.agent
-            for e in events
-            if e.agent is not None
+            event.agent
+            for event in events
+            if event.agent is not None
         }
     )
 
@@ -69,7 +67,6 @@ def events_to_record(
     for event in events:
         step_type = EVENT_TO_STEP_TYPE.get(event.event_type)
 
-        # Ignore lifecycle events
         if step_type is None:
             continue
 
@@ -86,13 +83,10 @@ def events_to_record(
                     if step_type == "RETRIEVAL"
                     else None
                 ),
-                is_root_cause=(
-                    event.step == origin_step
-                ),
+                status=event.status,
+                metadata=event.metadata or {},
             )
         )
-
-    fault_injected = fault_type is not None
 
     return AgentFaultRecord(
         trajectory_id=trajectory_id,
@@ -104,16 +98,16 @@ def events_to_record(
             agents_involved=agents,
         ),
         outcome=Outcome(
-            status="FAIL" if fault_injected else "SUCCESS",
-            success_score=0.0 if fault_injected else 1.0,
+            status="SUCCESS",
+            success_score=1.0,
         ),
-        fault_injected=fault_injected,
-        fault_type=fault_type,
-        origin_step=origin_step,
-        injection_params=injection_params,
+        fault_injected=False,
+        fault_type=None,
+        origin_step=None,
+        injection_params=None,
         num_steps=len(steps),
         num_agents_involved=len(agents),
-        source="INJECTED" if fault_injected else "NATURAL",
+        source="NATURAL",
         split="TRAIN",
         steps=steps,
     )
