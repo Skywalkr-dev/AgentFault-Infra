@@ -26,7 +26,8 @@ class StepRecord:
     tool_name: str | None = None
     retrieved_docs: Any | None = None
     is_root_cause: bool = False
-
+    status: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class AgentFaultRecord:
