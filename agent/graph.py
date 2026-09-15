@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from .state import AgentState
 from .retrieval import retrieve
 from .tools import calculator, get_system_status
-from .llm import MockLLM
+from .llm import GeminiLLM
 
 
 
@@ -13,7 +13,7 @@ tools = {
 }
 
 
-llm = MockLLM()
+llm = GeminiLLM()
 
 def retrieve_node(state: AgentState):
     context = retrieve(state["query"])
