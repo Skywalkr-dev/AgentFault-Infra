@@ -6,14 +6,17 @@ from injector.schema import AgentFaultRecord
 
 
 class FaultInjector:
+
     def inject(
         self,
         trajectory: AgentFaultRecord,
         fault: Fault,
     ) -> AgentFaultRecord:
+
         if fault.fault_type not in OPERATORS:
             raise ValueError(
-                f"No operator registered for {fault.fault_type}"
+                f"Unsupported fault type: "
+                f"{fault.fault_type}"
             )
 
         injected = deepcopy(trajectory)
@@ -25,7 +28,9 @@ class FaultInjector:
         )
 
         injected.fault_injected = True
-        injected.fault_type = fault.fault_type.value
+        injected.fault_type = (
+            fault.fault_type.value
+        )
         injected.origin_step = fault.step
         injected.source = "INJECTED"
 
@@ -40,11 +45,12 @@ class FaultInjector:
 
         if target is None:
             raise ValueError(
-                f"Step {fault.step} does not exist "
-                f"in trajectory {trajectory.trajectory_id}"
+                f"Step {fault.step} not found"
             )
 
-        metadata = OPERATORS[fault.fault_type](
+        metadata = OPERATORS[
+            fault.fault_type
+        ](
             injected,
             target,
             fault.parameters,
@@ -55,9 +61,33 @@ class FaultInjector:
             "random_seed": fault.seed,
         }
 
-        for step in injected.steps:
-            if step.step_index == fault.step:
-                step.is_root_cause = True
+        # Most faults keep the original target step.
+        # PLAN_MISSING_STEP removes it, so the nearest
+        # surviving step becomes the observable root cause.
+        root_step = next(
+            (
+                step
+                for step in injected.steps
+                if step.step_index == fault.step
+            ),
+            None,
+        )
+
+        if root_step is None:
+            root_step = next(
+                (
+                    step
+                    for step in injected.steps
+                    if step.step_index > fault.step
+                ),
+                None,
+            )
+
+        if root_step is None and injected.steps:
+            root_step = injected.steps[-1]
+
+        if root_step is not None:
+            root_step.is_root_cause = True
 
         injected.outcome.status = "FAIL"
         injected.outcome.success_score = 0.0
