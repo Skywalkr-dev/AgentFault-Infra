@@ -1,0 +1,27 @@
+{
+  "name": "agentfault-console",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Visual debugging console for AgentFault injected trajectories",
+  "scripts": {
+    "build:data": "node scripts/build-data.mjs",
+    "dev": "npm run build:data && vite",
+    "build": "npm run build:data && vite build",
+    "preview": "npm run build:data && vite preview"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.1.0",
+    "@fontsource-variable/jetbrains-mono": "^5.1.0",
+    "lucide-react": "^0.454.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.10"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}

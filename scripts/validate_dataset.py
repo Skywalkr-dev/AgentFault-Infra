@@ -2,9 +2,25 @@ import json
 from collections import Counter
 from pathlib import Path
 
+from injector.real_trajectory import (
+    events_to_record,
+    load_events,
+)
+
 
 BASELINE_DIR = Path("data/trajectories/baseline")
 INJECTED_DIR = Path("data/trajectories/injected")
+
+
+EVENT_TYPES = {
+    "trajectory_start",
+    "trajectory_end",
+    "llm_call",
+    "tool_call",
+    "tool_result",
+    "retrieval",
+    "handoff",
+}
 
 
 def load_json(path):
@@ -12,7 +28,95 @@ def load_json(path):
         return json.load(f)
 
 
-def validate_record(data, expected_injected):
+def validate_baseline(path):
+    errors = []
+
+    try:
+        events = load_events(path)
+    except Exception as e:
+        return [f"invalid JSONL: {e}"]
+
+    if not events:
+        return ["trajectory contains no events"]
+
+    trajectory_ids = {
+        event.trajectory_id
+        for event in events
+    }
+
+    if len(trajectory_ids) != 1:
+        errors.append(
+            f"multiple trajectory IDs: {sorted(trajectory_ids)}"
+        )
+
+    for index, event in enumerate(events):
+        if not event.trajectory_id:
+            errors.append(
+                f"event {index}: missing trajectory_id"
+            )
+
+        if not event.timestamp:
+            errors.append(
+                f"event {index}: missing timestamp"
+            )
+
+        if event.event_type not in EVENT_TYPES:
+            errors.append(
+                f"event {index}: unknown event_type "
+                f"{event.event_type!r}"
+            )
+
+        if event.step is None:
+            errors.append(
+                f"event {index}: missing step"
+            )
+
+    start_events = [
+        event
+        for event in events
+        if event.event_type == "trajectory_start"
+    ]
+
+    end_events = [
+        event
+        for event in events
+        if event.event_type == "trajectory_end"
+    ]
+
+    if len(start_events) != 1:
+        errors.append(
+            f"expected 1 trajectory_start, "
+            f"found {len(start_events)}"
+        )
+
+    if len(end_events) != 1:
+        errors.append(
+            f"expected 1 trajectory_end, "
+            f"found {len(end_events)}"
+        )
+
+    steps = [
+        event.step
+        for event in events
+        if event.step is not None
+    ]
+
+    if steps and steps != sorted(steps):
+        errors.append(
+            "event steps are not monotonically increasing"
+        )
+
+    try:
+        events_to_record(events)
+    except Exception as e:
+        errors.append(
+            f"events_to_record failed: {e}"
+        )
+
+    return errors
+
+
+def validate_record(data):
     errors = []
 
     required = {
@@ -79,113 +183,152 @@ def validate_record(data, expected_injected):
                 f"{sorted(missing_step)}"
             )
 
-    if expected_injected:
-        if data["fault_injected"] is not True:
+        if step.get("step_type") not in {
+            "LLM_CALL",
+            "TOOL_CALL",
+            "RETRIEVAL",
+            "HANDOFF",
+        }:
             errors.append(
-                "fault_injected is not true"
+                f"unknown step_type="
+                f"{step.get('step_type')}"
             )
 
-        if data["source"] != "INJECTED":
-            errors.append(
-                f"source={data['source']}"
-            )
+    if data["fault_injected"] is not True:
+        errors.append(
+            "fault_injected is not true"
+        )
 
-        if data["fault_type"] is None:
-            errors.append(
-                "fault_type is null"
-            )
+    if data["source"] != "INJECTED":
+        errors.append(
+            f"source={data['source']}"
+        )
 
-        if data["origin_step"] is None:
-            errors.append(
-                "origin_step is null"
-            )
+    if data["fault_type"] is None:
+        errors.append(
+            "fault_type is null"
+        )
 
-        if data["injection_params"] is None:
-            errors.append(
-                "injection_params is null"
-            )
+    if data["origin_step"] is None:
+        errors.append(
+            "origin_step is null"
+        )
 
-        outcome = data["outcome"]
+    if data["injection_params"] is None:
+        errors.append(
+            "injection_params is null"
+        )
 
-        if outcome.get("status") != "FAIL":
-            errors.append(
-                f"outcome.status={outcome.get('status')}"
-            )
+    outcome = data["outcome"]
 
-        if outcome.get("success_score") != 0.0:
-            errors.append(
-                "success_score is not 0.0"
-            )
+    if outcome.get("status") != "FAIL":
+        errors.append(
+            f"outcome.status={outcome.get('status')}"
+        )
 
-        root_steps = [
-            step
-            for step in steps
-            if step.get("is_root_cause") is True
-        ]
+    if outcome.get("success_score") != 0.0:
+        errors.append(
+            "success_score is not 0.0"
+        )
 
-        if len(root_steps) != 1:
-            errors.append(
-                f"expected 1 root cause, "
-                f"found {len(root_steps)}"
-            )
-        else:
-            root_index = root_steps[0]["step_index"]
+    root_steps = [
+        step
+        for step in steps
+        if step.get("is_root_cause") is True
+    ]
 
-            if (
-                root_index != data["origin_step"]
-                and data["fault_type"]
-                != "PLAN_MISSING_STEP"
-            ):
-                errors.append(
-                    f"root cause step {root_index} "
-                    f"!= origin_step "
-                    f"{data['origin_step']}"
-                )
-
-            if root_index not in step_indices:
-                errors.append(
-                    "root cause step does not exist"
-                )
-
+    if len(root_steps) != 1:
+        errors.append(
+            f"expected 1 root cause, "
+            f"found {len(root_steps)}"
+        )
     else:
-        if data["fault_injected"] is not False:
+        root_index = root_steps[0]["step_index"]
+
+        if (
+            root_index != data["origin_step"]
+            and data["fault_type"]
+            != "PLAN_MISSING_STEP"
+        ):
             errors.append(
-                "baseline fault_injected is not false"
+                f"root cause step {root_index} "
+                f"!= origin_step "
+                f"{data['origin_step']}"
             )
 
-        if data["fault_type"] is not None:
+        if root_index not in step_indices:
             errors.append(
-                "baseline fault_type is not null"
-            )
-
-        if data["origin_step"] is not None:
-            errors.append(
-                "baseline origin_step is not null"
-            )
-
-        if data["source"] != "NATURAL":
-            errors.append(
-                f"baseline source={data['source']}"
+                "root cause step does not exist"
             )
 
     return errors
 
 
-def validate_directory(
-    directory,
-    expected_injected,
-):
+def validate_baseline_directory(directory):
     files = sorted(
-        directory.glob("*.json")
-        if expected_injected
-        else directory.glob("*.jsonl")
+        directory.glob("*.jsonl")
     )
 
     total = 0
     valid = 0
     invalid = 0
-    errors_by_file = {}
 
+    errors_by_file = {}
+    trajectory_ids = set()
+    duplicate_ids = []
+
+    event_counts = Counter()
+
+    for path in files:
+        total += 1
+
+        errors = validate_baseline(path)
+
+        try:
+            events = load_events(path)
+
+            if events:
+                trajectory_id = events[0].trajectory_id
+
+                if trajectory_id in trajectory_ids:
+                    duplicate_ids.append(
+                        trajectory_id
+                    )
+
+                trajectory_ids.add(trajectory_id)
+
+                for event in events:
+                    event_counts[event.event_type] += 1
+
+        except Exception:
+            pass
+
+        if errors:
+            invalid += 1
+            errors_by_file[path.name] = errors
+        else:
+            valid += 1
+
+    return {
+        "total": total,
+        "valid": valid,
+        "invalid": invalid,
+        "errors": errors_by_file,
+        "duplicate_ids": duplicate_ids,
+        "event_counts": event_counts,
+    }
+
+
+def validate_injected_directory(directory):
+    files = sorted(
+        directory.glob("*.json")
+    )
+
+    total = 0
+    valid = 0
+    invalid = 0
+
+    errors_by_file = {}
     trajectory_ids = set()
     duplicate_ids = []
 
@@ -214,10 +357,7 @@ def validate_directory(
 
         trajectory_ids.add(trajectory_id)
 
-        errors = validate_record(
-            data,
-            expected_injected,
-        )
+        errors = validate_record(data)
 
         if errors:
             invalid += 1
@@ -225,27 +365,44 @@ def validate_directory(
         else:
             valid += 1
 
-        if expected_injected:
-            fault_counts[
-                data.get("fault_type")
-            ] += 1
+        fault_counts[
+            data.get("fault_type")
+        ] += 1
 
     return {
         "total": total,
         "valid": valid,
         "invalid": invalid,
-        "duplicate_ids": duplicate_ids,
         "errors": errors_by_file,
+        "duplicate_ids": duplicate_ids,
         "fault_counts": fault_counts,
     }
+
+
+def print_errors(errors):
+    for filename, file_errors in list(
+        errors.items()
+    )[:20]:
+        print()
+        print(filename)
+
+        for error in file_errors:
+            print(f"  - {error}")
+
+    remaining = len(errors) - 20
+
+    if remaining > 0:
+        print()
+        print(
+            f"... and {remaining} more files"
+        )
 
 
 def main():
     print("=== BASELINES ===")
 
-    baseline = validate_directory(
-        BASELINE_DIR,
-        expected_injected=False,
+    baseline = validate_baseline_directory(
+        BASELINE_DIR
     )
 
     print(
@@ -264,12 +421,29 @@ def main():
             f"{len(baseline['duplicate_ids'])}"
         )
 
+    if baseline["event_counts"]:
+        print()
+        print("=== BASELINE EVENTS ===")
+
+        for event_type, count in sorted(
+            baseline["event_counts"].items()
+        ):
+            print(
+                f"{event_type}: {count}"
+            )
+
+    if baseline["errors"]:
+        print()
+        print("=== BASELINE ERRORS ===")
+        print_errors(
+            baseline["errors"]
+        )
+
     print()
     print("=== INJECTED ===")
 
-    injected = validate_directory(
-        INJECTED_DIR,
-        expected_injected=True,
+    injected = validate_injected_directory(
+        INJECTED_DIR
     )
 
     print(
@@ -300,35 +474,21 @@ def main():
 
     if injected["errors"]:
         print()
-        print("=== ERRORS ===")
-
-        for filename, errors in list(
-            injected["errors"].items()
-        )[:20]:
-            print()
-            print(filename)
-
-            for error in errors:
-                print(f"  - {error}")
-
-        remaining = (
-            len(injected["errors"]) - 20
+        print("=== INJECTED ERRORS ===")
+        print_errors(
+            injected["errors"]
         )
-
-        if remaining > 0:
-            print()
-            print(
-                f"... and {remaining} more files"
-            )
 
     print()
 
-    if (
+    passed = (
         baseline["invalid"] == 0
         and injected["invalid"] == 0
         and not baseline["duplicate_ids"]
         and not injected["duplicate_ids"]
-    ):
+    )
+
+    if passed:
         print("DATASET VALIDATION PASSED")
     else:
         print("DATASET VALIDATION FAILED")
