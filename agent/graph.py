@@ -3,7 +3,7 @@ from langgraph.graph import StateGraph, START, END
 from .state import AgentState
 from .retrieval import retrieve
 from .tools import calculator, get_system_status
-from .llm import GeminiLLM
+from .llm import make_llm
 
 
 
@@ -13,7 +13,21 @@ tools = {
 }
 
 
-llm = GeminiLLM()
+_llm = None
+
+
+def set_llm(llm_obj):
+    global _llm
+    _llm = llm_obj
+    return llm_obj
+
+
+def get_llm():
+    global _llm
+    if _llm is None:
+        _llm = make_llm()
+    return _llm
+
 
 def retrieve_node(state: AgentState):
     context = retrieve(state["query"])
@@ -70,7 +84,7 @@ Previous tool result:
 {state["tool_result"]}
 """
 
-    response = llm.invoke([HumanMessage(content=prompt)])
+    response = get_llm().invoke([HumanMessage(content=prompt)])
 
     content = response.content
 
@@ -155,6 +169,23 @@ def route_after_research(state: AgentState):
     return "reviewer"
 
 def reviewer_node(state: AgentState):
+    state["recorder"].record(
+        "handoff",
+        agent="reviewer",
+        input={
+            "task": state["query"],
+            "from": "researcher",
+            "to": "reviewer",
+        },
+        output=state["research"],
+        metadata={
+            "from": "researcher",
+            "to": "reviewer",
+            "responsibility": "verify_research",
+            "role": "reviewer",
+        },
+    )
+
     prompt = f"""
 You are the reviewer sub-agent.
 
@@ -173,7 +204,7 @@ Retrieved context:
 {state["retrieved_context"]}
 """
 
-    response = llm.invoke(prompt)
+    response = get_llm().invoke(prompt)
 
     content = response.content
 
@@ -196,6 +227,23 @@ Retrieved context:
     }
 
 def answer_node(state: AgentState):
+    state["recorder"].record(
+        "handoff",
+        agent="answer",
+        input={
+            "task": state["query"],
+            "from": "reviewer",
+            "to": "answer",
+        },
+        output=state["review"],
+        metadata={
+            "from": "reviewer",
+            "to": "answer",
+            "responsibility": "compose_final_answer",
+            "role": "answer",
+        },
+    )
+
     prompt = f"""
 Produce the final answer to the user's query.
 
@@ -212,7 +260,7 @@ Review:
 {state["review"]}
 """
 
-    response = llm.invoke(prompt)
+    response = get_llm().invoke(prompt)
 
     content = response.content
 

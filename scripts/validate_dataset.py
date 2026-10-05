@@ -186,6 +186,7 @@ def validate_record(data):
         if step.get("step_type") not in {
             "LLM_CALL",
             "TOOL_CALL",
+            "TOOL_RESULT",
             "RETRIEVAL",
             "HANDOFF",
         }:
@@ -490,8 +491,10 @@ def main():
 
     if passed:
         print("DATASET VALIDATION PASSED")
-    else:
-        print("DATASET VALIDATION FAILED")
+        raise SystemExit(0)
+
+    print("DATASET VALIDATION FAILED")
+    raise SystemExit(1)
 
 
 if __name__ == "__main__":
