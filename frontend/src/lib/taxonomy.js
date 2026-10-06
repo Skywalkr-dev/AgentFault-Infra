@@ -4,6 +4,7 @@ export const STEP_TYPES = {
   LLM_CALL: { color: "var(--c-llm)", label: "LLM call" },
   TOOL_CALL: { color: "var(--c-tool)", label: "Tool call" },
   TOOL_RESULT: { color: "var(--c-toolresult)", label: "Tool result" },
+  HANDOFF: { color: "var(--c-handoff)", label: "Handoff" },
 };
 
 export const FAULT_GROUPS = {
@@ -40,4 +41,4 @@ export function shortFault(type) {
   return rest.length ? `${rest.join(" ").replace(/^\w/, (c) => c.toLowerCase())}` : head;
 }
 
-export const STEP_TYPE_ORDER = ["RETRIEVAL", "LLM_CALL", "TOOL_CALL", "TOOL_RESULT"];
+export const STEP_TYPE_ORDER = ["RETRIEVAL", "LLM_CALL", "TOOL_CALL", "TOOL_RESULT", "HANDOFF"];

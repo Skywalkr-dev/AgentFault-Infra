@@ -25,6 +25,7 @@ const STEP_TYPE_MAP = {
   llm_call: "LLM_CALL",
   tool_call: "TOOL_CALL",
   tool_result: "TOOL_RESULT",
+  handoff: "HANDOFF",
 };
 
 // ---------------------------------------------------------------------------
@@ -177,9 +178,9 @@ function loadBaselineFile(file) {
       extractTask(events, start?.input?.query) ??
       extractTask(events),
     config: {
-      framework: null,
-      model: null,
-      temperature: null,
+      framework: start?.metadata?.framework ?? null,
+      model: start?.metadata?.model ?? null,
+      temperature: start?.metadata?.temperature ?? null,
       agents: uniqueAgents(steps),
     },
     outcome: outcomeFromStatus(end?.status ?? "success", end?.output),
@@ -421,7 +422,9 @@ const demoIds = [];
 {
   const scored = [];
   for (const rec of injected) {
-    const seq = rec.stepTypes.join("|");
+    const seq = rec.stepTypes
+      .filter((t) => t !== "TOOL_RESULT")
+      .join("|");
     const hasShape = seq.includes("RETRIEVAL|LLM_CALL|TOOL_CALL|LLM_CALL");
     const prefIdx = rec.fault ? DEMO_PREF.indexOf(rec.fault.type) : -1;
     if (prefIdx < 0 || !hasShape) continue;
