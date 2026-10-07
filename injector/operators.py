@@ -423,10 +423,28 @@ def _role_overlap(
         step.metadata.get("role")
     )
 
-    overlapping_role = params.get(
-        "role",
-        step.agent_id,
-    )
+    overlapping_role = params.get("role")
+
+    if not overlapping_role or overlapping_role == original:
+        candidates = []
+
+        for other in trajectory.steps:
+            if other is step:
+                continue
+
+            role = (other.metadata or {}).get("role")
+
+            if role and role != original and role not in candidates:
+                candidates.append(role)
+
+        if not candidates:
+            candidates = [
+                agent
+                for agent in ("researcher", "reviewer", "answer")
+                if agent != original
+            ]
+
+        overlapping_role = candidates[0]
 
     step.metadata["role"] = overlapping_role
 
