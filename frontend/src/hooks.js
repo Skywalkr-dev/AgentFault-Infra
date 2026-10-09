@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useStore } from "./data/store.jsx";
+import { apiEnabled, fetchReplay, normalizeComparison } from "./lib/api.js";
 
 function parseHash() {
   const h = window.location.hash.slice(1) || "/";
@@ -36,4 +38,50 @@ export function navigate(to, extra) {
 
 export function listRoute(params) {
   return { name: "list", params };
+}
+
+// Replay-comparison data for a trajectory: starts from the bundled replay
+// index (works with no backend), and upgrades to the live dashboard API when
+// VITE_API_BASE is configured. The DetailView is remounted per id (key={id}),
+// so the initializer always sees the right id.
+export function useReplayComparison(id) {
+  const { replayIndex } = useStore();
+  const bundled = (id && replayIndex.get(id)) || null;
+
+  const [state, setState] = useState(() => ({
+    data: bundled,
+    source: bundled ? "bundle" : null,
+    loading: apiEnabled,
+    error: null,
+  }));
+
+  useEffect(() => {
+    let alive = true;
+    if (!id || !apiEnabled) return;
+
+    fetchReplay(id)
+      .then((comparison) => {
+        if (!alive) return;
+        setState({
+          data: normalizeComparison(comparison),
+          source: "api",
+          loading: false,
+          error: null,
+        });
+      })
+      .catch((err) => {
+        if (!alive) return;
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: String(err?.message ?? err),
+        }));
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  return state;
 }

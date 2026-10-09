@@ -9,6 +9,7 @@
 //   public/data/baseline.json   — normalized baseline trajectories
 //   public/data/injected.json   — normalized fault-injected trajectories
 //   public/data/meta.json       — dataset summary + fault taxonomy + demo pick
+//   public/data/replay.json     — compact replay index (scores + propagation)
 
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -460,10 +461,89 @@ writeFileSync(join(OUT_DIR, "baseline.json"), JSON.stringify(baselines));
 writeFileSync(join(OUT_DIR, "injected.json"), JSON.stringify(injected));
 writeFileSync(join(OUT_DIR, "meta.json"), JSON.stringify(meta));
 
+// ---------------------------------------------------------------------------
+// Replay index — compact per-trajectory replay-comparison + propagation chain.
+// The full replay dump lives in data/replay/replay.json (offline artifact);
+// this only keeps what the console renders, so the browser bundle stays small.
+// ---------------------------------------------------------------------------
+const REPLAY_SRC = join(ROOT, "..", "data", "replay", "replay.json");
+const clip = (s, n = 150) =>
+  typeof s === "string" && s.length > n ? s.slice(0, n - 1) + "…" : s;
+
+function compactChange(c) {
+  return { field: c.field, before: clip(c.before), after: clip(c.after) };
+}
+
+function compactNode(n) {
+  return {
+    stepIndex: n.step_index,
+    stepType: n.step_type,
+    agent: n.agent,
+    status: n.status,
+    isOrigin: Boolean(n.is_origin),
+    isRootCause: Boolean(n.is_root_cause),
+    changes: (n.changes ?? []).map(compactChange),
+  };
+}
+
+const replay = { summary: null, config: null, index: {} };
+let replayCount = 0;
+
+try {
+  const src = JSON.parse(readFileSync(REPLAY_SRC, "utf8"));
+  replay.summary = src.summary ?? null;
+  replay.config = src.config ?? null;
+
+  for (const r of src.results ?? []) {
+    const p = r.propagation ?? {};
+    replay.index[r.injected_id] = {
+      baselineId: r.baseline_id,
+      faultType: r.fault_type,
+      baselineScore: r.baseline_score,
+      injectedScore: r.injected_score,
+      successDelta: r.success_delta,
+      deterministic: {
+        baseline: Boolean(r.baseline_replay_deterministic),
+        injected: Boolean(r.injected_replay_deterministic),
+      },
+      failedChecks: (r.injected_checks ?? [])
+        .filter((c) => !c.passed)
+        .map((c) => ({
+          name: c.name,
+          weight: c.weight,
+          reason: clip(c.reason, 200),
+          steps: c.steps ?? [],
+        })),
+      checks: (r.injected_checks ?? []).map((c) => ({
+        name: c.name,
+        passed: Boolean(c.passed),
+        weight: c.weight,
+      })),
+      propagation: {
+        originStep: p.origin_step ?? null,
+        faultType: p.fault_type ?? r.fault_type ?? null,
+        affectedSteps: p.affected_steps ?? [],
+        edges: p.edges ?? [],
+        outcome: p.outcome ?? null,
+        nodes: (p.nodes ?? []).map(compactNode),
+      },
+    };
+    replayCount++;
+  }
+} catch (err) {
+  console.warn(
+    `[warn] replay results unavailable (${err.message}); replay views will rely on the dashboard API`
+  );
+}
+
+replay.count = replayCount;
+writeFileSync(join(OUT_DIR, "replay.json"), JSON.stringify(replay));
+
 console.log("  written:");
 console.log(`    public/data/baseline.json  (${baselines.length} trajectories)`);
 console.log(`    public/data/injected.json  (${injected.length} trajectories)`);
 console.log(`    public/data/meta.json      (${meta.faultTaxonomy.length} fault types)`);
+console.log(`    public/data/replay.json    (${replayCount} replay comparisons)`);
 console.log(`  represented fault types: ${represented.size}/20`);
 console.log(`  missing: ${missingFaults.join(", ") || "none"}`);
 console.log(`  demo pick: ${demoIds[0] ?? "none"}`);

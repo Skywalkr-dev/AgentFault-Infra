@@ -1,16 +1,19 @@
-import { Layers, GitBranch, ExternalLink } from "lucide-react";
+import { Layers, GitBranch, ExternalLink, Loader2 } from "lucide-react";
 import { useStore } from "../../data/store.jsx";
 import { TrajectoryHeader } from "./TrajectoryHeader.jsx";
 import { FaultCard } from "./FaultCard.jsx";
+import { ReplayPanel } from "./ReplayPanel.jsx";
+import { PropagationChain } from "./PropagationChain.jsx";
 import { CompareView } from "./CompareView.jsx";
 import { StepCard } from "./StepCard.jsx";
 import { Badge } from "../shared/Badge.jsx";
 import { JsonBlock } from "../shared/ValueBlock.jsx";
-import { navigate } from "../../hooks.js";
+import { navigate, useReplayComparison } from "../../hooks.js";
 import { alignSequences, stepFieldChanges } from "../../lib/diff.js";
 
 function DetailInner({ id }) {
   const { data, byId } = useStore();
+  const replayState = useReplayComparison(id);
   const rec = byId.get(id);
   if (!rec)
     return (
@@ -65,6 +68,20 @@ function DetailInner({ id }) {
           changes={rootChanges}
         />
       )}
+
+      {isInjected && replayState.loading && !replayState.data && (
+        <section className="detail-section">
+          <header className="detail-section__head">
+            <span className="detail-section__title">
+              <Loader2 size={15} className="boot__spin" /> Loading replay from dashboard API…
+            </span>
+            <span className="detail-section__hint">{replayState.error}</span>
+          </header>
+        </section>
+      )}
+
+      <ReplayPanel replay={replayState.data} source={replayState.source} />
+      <PropagationChain replay={replayState.data} />
 
       {isInjected && baseline ? (
         <CompareView baseline={baseline} injected={rec} />
