@@ -1,0 +1,12 @@
+apiVersion: v2
+name: agentfault
+description: AgentFault replay platform — dashboard API plus autoscaled deterministic replay workers
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - agentfault
+  - replay
+  - fault-injection
+maintainers:
+  - name: AgentFault

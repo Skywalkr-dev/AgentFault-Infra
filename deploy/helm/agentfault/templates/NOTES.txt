@@ -1,0 +1,19 @@
+AgentFault has been deployed as release {{ .Release.Name }}.
+
+Components:
+  dashboard : {{ include "agentfault.fullname" . }}-dashboard:{{ .Values.dashboard.service.port }}
+  worker    : {{ include "agentfault.fullname" . }}-worker:{{ .Values.worker.port }}
+  autoscaling: {{ if .Values.worker.autoscaling.enabled }}{{ .Values.worker.autoscaling.minReplicas }}-{{ .Values.worker.autoscaling.maxReplicas }} replicas @ {{ .Values.worker.autoscaling.targetCPUUtilizationPercentage }}% CPU{{ else }}disabled{{ end }}
+
+Port-forward to explore the API:
+
+  kubectl port-forward svc/{{ include "agentfault.fullname" . }}-dashboard {{ .Values.dashboard.service.port }}:{{ .Values.dashboard.service.port }}
+
+Trigger replay work (workers scale out under CPU load):
+
+  kubectl port-forward svc/{{ include "agentfault.fullname" . }}-worker {{ .Values.worker.port }}:{{ .Values.worker.port }}
+  curl -X POST "http://localhost:{{ .Values.worker.port }}/work?n=100"
+
+Watch the autoscaler:
+
+  kubectl get hpa {{ include "agentfault.fullname" . }}-worker -w

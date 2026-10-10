@@ -125,7 +125,18 @@ def write_injected(tmp_path, baseline_id="traj_b1"):
          "input": {"task": "Compute 2 + 3.", "from": "reviewer", "to": "answer"},
          "output": "Review approved.",
          "metadata": {"responsibility": "compose_final_answer", "role": "answer"}},
+        {"step_index": 7, "step_type": "LLM_CALL", "agent_id": "answer",
+         "input": "answer prompt", "output": "The result of 2 + 3 is 0."},
     ]
+
+    step_defaults = {
+        "retrieved_docs": None,
+        "is_root_cause": False,
+        "status": "success",
+        "metadata": {},
+        "tool_name": None,
+    }
+    steps = [{**step_defaults, **step} for step in steps]
 
     record = {
         "trajectory_id": injected_id,

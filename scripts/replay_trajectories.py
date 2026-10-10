@@ -4,55 +4,15 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from injector.real_trajectory import events_to_record, load_events
 from replay import ReplayConfig, ReplayEngine
+from replay.records import load_baselines, load_injected
 
 BASELINE_DIR = Path("data/trajectories/baseline")
 INJECTED_DIR = Path("data/trajectories/injected")
 DEFAULT_OUT = Path("data/replay/replay.json")
-
-
-def load_baselines():
-    records = {}
-
-    for path in sorted(BASELINE_DIR.glob("*.jsonl")):
-        try:
-            records[path.stem] = events_to_record(load_events(path))
-        except Exception as exc:
-            print(f"[warn] baseline {path.name}: {exc}")
-
-    return records
-
-
-def record_from_dict(data) -> SimpleNamespace:
-    steps = [SimpleNamespace(**step) for step in data["steps"]]
-
-    return SimpleNamespace(
-        trajectory_id=data["trajectory_id"],
-        fault_type=data.get("fault_type"),
-        origin_step=data.get("origin_step"),
-        outcome=SimpleNamespace(**data["outcome"]),
-        steps=steps,
-        source=data.get("source"),
-        split=data.get("split"),
-    )
-
-
-def load_injected():
-    records = {}
-
-    for path in sorted(INJECTED_DIR.glob("*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            records[path.stem] = record_from_dict(data)
-        except Exception as exc:
-            print(f"[warn] injected {path.name}: {exc}")
-
-    return records
 
 
 def build_results(engine, baselines, injected, limit=None, pair=None):
@@ -122,8 +82,8 @@ def main():
     config = ReplayConfig.from_env()
     engine = ReplayEngine(config)
 
-    baselines = load_baselines()
-    injected = load_injected()
+    baselines = load_baselines(BASELINE_DIR)
+    injected = load_injected(INJECTED_DIR)
 
     print(f"Baselines: {len(baselines)}")
     print(f"Injected:  {len(injected)}")
