@@ -1,0 +1,84 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: agentfault-worker
+  labels:
+    app.kubernetes.io/name: agentfault
+    app.kubernetes.io/component: replay-worker
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: agentfault.worker
+      rules:
+        - alert: AgentFaultWorkerDown
+          expr: up{job="agentfault-agentfault-worker"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Replay worker is not scrapeable
+            description: >-
+              Prometheus has failed to scrape a replay worker for 2 minutes.
+
+        - alert: AgentFaultWorkerQueueBacklog
+          expr: sum(agentfault_worker_queue_depth) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Replay queue is not draining
+            description: >-
+              {{ $value }} replay jobs have remained in the queue for 10
+              minutes, so workers are not keeping up with the backlog.
+
+        - alert: AgentFaultWorkerJobFailures
+          expr: increase(agentfault_worker_jobs_failed_total[5m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: Replay jobs are failing
+            description: >-
+              {{ $value }} replay jobs failed over the last 5 minutes.
+
+        - alert: AgentFaultWorkerHighJobLatency
+          expr: >-
+            histogram_quantile(
+              0.95,
+              sum(rate(agentfault_worker_job_duration_seconds_bucket[5m])) by (le)
+            ) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Replay p95 job latency is above 1s
+            description: >-
+              The 95th-percentile replay comparison took
+              {{ $value | humanizeDuration }}.
+
+        - alert: AgentFaultReplayWorkersAtMax
+          expr: >-
+            max(kube_horizontalpodautoscaler_status_current_replicas
+            {horizontalpodautoscaler="agentfault-agentfault-worker"})
+            >=
+            max(kube_horizontalpodautoscaler_spec_max_replicas
+            {horizontalpodautoscaler="agentfault-agentfault-worker"})
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Replay workers have been at max replicas for 10 minutes
+            description: >-
+              The replay-worker HPA is pinned at its maximum replica count,
+              which suggests the queue is outgrowing cluster capacity.
+
+        - alert: AgentFaultSuccessDeltaRegression
+          expr: avg(agentfault_worker_mean_success_delta) < 0.05
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: Mean success-score delta is unusually low
+            description: >-
+              The mean success-score delta across replayed faults has dropped
+              below 0.05; verify the injected dataset and scoring weights.

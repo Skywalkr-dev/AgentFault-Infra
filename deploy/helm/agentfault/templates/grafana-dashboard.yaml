@@ -1,0 +1,14 @@
+{{- if .Values.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "agentfault.fullname" . }}-grafana-dashboard
+  labels:
+    {{- include "agentfault.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+  annotations:
+    grafana-folder: /agentfault
+data:
+  agentfault-workers.json: |-
+{{ .Files.Get "dashboards/agentfault-workers.json" | indent 4 }}
+{{- end }}

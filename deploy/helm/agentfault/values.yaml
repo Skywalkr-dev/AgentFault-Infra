@@ -60,6 +60,10 @@ serviceMonitor:
   interval: 15s
   labels: {}
 
+# Ship the Grafana worker dashboard as a sidecar-importable ConfigMap.
+dashboards:
+  enabled: true
+
 nameOverride: ""
 fullnameOverride: ""
 

@@ -1,0 +1,60 @@
+# Values overlay for the kube-prometheus-stack chart (Stage 6 monitoring).
+#
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace \
+#     -f deploy/monitoring/values-kube-prometheus-stack.yaml
+#
+# The AgentFault chart discovers ServiceMonitors and Grafana dashboards across
+# namespaces ("nil uses helm values"), so installing AgentFault into its own
+# namespace is enough for metrics + dashboard provisioning to light up.
+
+prometheus:
+  prometheusSpec:
+    # Discover ServiceMonitors in any namespace (the AgentFault release lives
+    # outside the monitoring namespace).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    # Discover PrometheusRules in any namespace (agentfault-worker rules).
+    ruleSelectorNilUsesHelmValues: false
+    ruleNamespaceSelector: {}
+    retention: 6h
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+grafana:
+  # Sidecar imports any ConfigMap labelled grafana_dashboard=1, including the
+  # AgentFault worker dashboard shipped by the AgentFault chart.
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespaces: true
+      label: grafana_dashboard
+      labelValue: "1"
+      folderAnnotation: grafana-folder
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# Keep the default stack light enough for a single-node kind cluster.
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: false
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
