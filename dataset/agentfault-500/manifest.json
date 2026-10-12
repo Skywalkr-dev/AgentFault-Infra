@@ -1,0 +1,170 @@
+{
+  "config": {
+    "mock_tools": true,
+    "model": "mock-llm-v1",
+    "provider": "mock",
+    "seed": 0,
+    "temperature": 0.0
+  },
+  "content_hash": "d5d2cca9836a5b63eba6b372cbfda22d8d0f078d6980f86f13a4fb60e51582fd",
+  "counts": {
+    "baseline": 160,
+    "fault_types_present": 19,
+    "fault_types_total": 20,
+    "injected": 500,
+    "replay": 500
+  },
+  "created_at": "2026-10-12T00:00:00+00:00",
+  "fault_counts": {
+    "CTRL_EXCESSIVE_EXPLORATION": 39,
+    "CTRL_LOOP": 33,
+    "CTRL_PREMATURE_TERMINATION": 32,
+    "KNOW_CITATION_MISMATCH": 43,
+    "KNOW_CONTEXT_TRUNCATION": 39,
+    "KNOW_RETRIEVAL_FAILURE": 13,
+    "MA_INCORRECT_HANDOFF": 21,
+    "MA_INFORMATION_LOSS": 49,
+    "MA_MISSING_RESPONSIBILITY": 21,
+    "MA_ROLE_OVERLAP": 18,
+    "PLAN_INCORRECT_SUCCESS_CRITERIA": 40,
+    "PLAN_MISSING_STEP": 41,
+    "SEC_CROSS_USER_DATA_LEAKAGE": 44,
+    "SEC_PROMPT_INJECTION": 34,
+    "SEC_UNAUTHORIZED_ACTION": 6,
+    "TOOL_FAILED_RECOVERY": 3,
+    "TOOL_UNNECESSARY_CALL": 4,
+    "TOOL_WRONG_ARGUMENT": 12,
+    "TOOL_WRONG_TOOL": 8
+  },
+  "files": {
+    "baseline.jsonl": {
+      "bytes": 1189587,
+      "records": 160,
+      "sha256": "805abf91a6de13f35738a6201035af893db336e72538843c64c8831e188abe41"
+    },
+    "injected.jsonl": {
+      "bytes": 3987301,
+      "records": 500,
+      "sha256": "b3f0a4b2426ea7fdf38cf4e90fb2b873b4d2a6496941b1e1e278f3859e2eec28"
+    },
+    "replay.jsonl": {
+      "bytes": 2004814,
+      "records": 500,
+      "sha256": "945ffbd5c4bdee18ed76d7ce454940bd778200640b7fbbee52c7749fe8c7cd76"
+    }
+  },
+  "generator": {
+    "git_commit": "feb174f5e1636c51cc1a957c8b969da6d1301cbd",
+    "python": "3.14.7",
+    "script": "scripts/export_dataset.py"
+  },
+  "missing_faults": [
+    "PLAN_INVALID_DEPENDENCY"
+  ],
+  "name": "AgentFault-500",
+  "release_notes": "Initial public release. 160 clean baseline trajectories and 500 fault-injected trajectories covering 19 of 20 fault types, generated deterministically (seed 42) with the MockLLM and replayed offline.",
+  "replay_summary": {
+    "by_fault": {
+      "CTRL_EXCESSIVE_EXPLORATION": {
+        "count": 39,
+        "delta": 3.900000000000002,
+        "mean_delta": 0.1
+      },
+      "CTRL_LOOP": {
+        "count": 33,
+        "delta": 4.62,
+        "mean_delta": 0.14
+      },
+      "CTRL_PREMATURE_TERMINATION": {
+        "count": 32,
+        "delta": 4.1400000000000015,
+        "mean_delta": 0.1294
+      },
+      "KNOW_CITATION_MISMATCH": {
+        "count": 43,
+        "delta": 6.450000000000005,
+        "mean_delta": 0.15
+      },
+      "KNOW_CONTEXT_TRUNCATION": {
+        "count": 39,
+        "delta": 0.0,
+        "mean_delta": 0.0
+      },
+      "KNOW_RETRIEVAL_FAILURE": {
+        "count": 13,
+        "delta": 4.55,
+        "mean_delta": 0.35
+      },
+      "MA_INCORRECT_HANDOFF": {
+        "count": 21,
+        "delta": 3.149999999999999,
+        "mean_delta": 0.15
+      },
+      "MA_INFORMATION_LOSS": {
+        "count": 49,
+        "delta": 2.6999999999999993,
+        "mean_delta": 0.0551
+      },
+      "MA_MISSING_RESPONSIBILITY": {
+        "count": 21,
+        "delta": 3.149999999999999,
+        "mean_delta": 0.15
+      },
+      "MA_ROLE_OVERLAP": {
+        "count": 18,
+        "delta": 2.6999999999999993,
+        "mean_delta": 0.15
+      },
+      "PLAN_INCORRECT_SUCCESS_CRITERIA": {
+        "count": 40,
+        "delta": 6.0000000000000036,
+        "mean_delta": 0.15
+      },
+      "PLAN_MISSING_STEP": {
+        "count": 41,
+        "delta": 2.34,
+        "mean_delta": 0.0571
+      },
+      "SEC_CROSS_USER_DATA_LEAKAGE": {
+        "count": 44,
+        "delta": 6.600000000000005,
+        "mean_delta": 0.15
+      },
+      "SEC_PROMPT_INJECTION": {
+        "count": 34,
+        "delta": 5.100000000000001,
+        "mean_delta": 0.15
+      },
+      "SEC_UNAUTHORIZED_ACTION": {
+        "count": 6,
+        "delta": 0.9,
+        "mean_delta": 0.15
+      },
+      "TOOL_FAILED_RECOVERY": {
+        "count": 3,
+        "delta": 0.81,
+        "mean_delta": 0.27
+      },
+      "TOOL_UNNECESSARY_CALL": {
+        "count": 4,
+        "delta": 0.88,
+        "mean_delta": 0.22
+      },
+      "TOOL_WRONG_ARGUMENT": {
+        "count": 12,
+        "delta": 2.6400000000000006,
+        "mean_delta": 0.22
+      },
+      "TOOL_WRONG_TOOL": {
+        "count": 8,
+        "delta": 1.76,
+        "mean_delta": 0.22
+      }
+    },
+    "count": 500,
+    "deterministic_baselines": 500,
+    "mean_success_delta": 0.1248
+  },
+  "seed": 42,
+  "version": "1.0.0"
+}
