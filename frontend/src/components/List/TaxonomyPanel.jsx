@@ -5,12 +5,15 @@ import { groupInfo, shortFault } from "../../lib/taxonomy.js";
 export function TaxonomyPanel({ meta, selectedType, selectedGroup, onSelectType, onSelectGroup }) {
   if (!meta) return null;
   const { groups, faultTaxonomy } = meta;
+  const represented = faultTaxonomy.filter((t) => t.represented).length;
 
   return (
     <section className="panel taxonomy">
       <header className="panel__head">
         <h3 className="panel__title">Fault taxonomy</h3>
-        <span className="panel__hint">16/20 represented in dataset</span>
+        <span className="panel__hint">
+          {represented}/{faultTaxonomy.length} represented in dataset
+        </span>
       </header>
       <div className="taxonomy__grid">
         {groups.map((g) => {
