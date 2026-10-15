@@ -11,4 +11,6 @@ metadata:
 data:
   agentfault-workers.json: |-
 {{ .Files.Get "dashboards/agentfault-workers.json" | indent 4 }}
+  agentfault-cluster.json: |-
+{{ .Files.Get "dashboards/agentfault-cluster.json" | indent 4 }}
 {{- end }}

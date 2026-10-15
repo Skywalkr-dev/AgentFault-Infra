@@ -37,6 +37,11 @@ grafana:
       label: grafana_dashboard
       labelValue: "1"
       folderAnnotation: grafana-folder
+      # Required so the folderAnnotation above is honoured: Grafana mirrors the
+      # sidecar's directory structure (e.g. /tmp/dashboards/agentfault) into
+      # folders instead of dropping every dashboard into "General".
+      provider:
+        foldersFromFilesStructure: true
   resources:
     requests:
       cpu: 50m

@@ -11,7 +11,8 @@ to the task outcome — all without network access, API keys, or a live model.
 - **Determinism:** for a fixed seed, 500/500 baseline replays are identical and
   the release has a stable content hash.
 - **Operable:** dashboard API + React SPA, a horizontally-autoscaled replay
-  worker, Helm chart, Prometheus alerts and a Grafana dashboard.
+  worker, Helm chart, Prometheus alerts and Grafana dashboards for both the
+  replay workers and the Kubernetes cluster/pods.
 
 The full write-up lives in [`docs/draft-report.md`](docs/draft-report.md).
 
@@ -194,38 +195,126 @@ docker exec af-worker python -c \
 
 ---
 
-## 7. Kubernetes (kind + Helm) with autoscaling
+## 7. Reproduce the Kubernetes environment (kind + Helm + monitoring)
+
+This is the exact environment used for the live testbed: a single-node `kind`
+cluster, the AgentFault chart (dashboard + autoscaled worker), a full
+`kube-prometheus-stack` monitoring stack, two auto-provisioned Grafana
+dashboards and a Prometheus alert rule. Everything runs offline once the images
+and Helm charts are present.
+
+Tested versions: `kind` 0.24.0 with node image `kindest/node:v1.31.0`,
+Helm 3.16+, `kube-prometheus-stack` chart 92.7.0 (app v0.94.1) and the
+`agentfault` chart 0.1.0.
+
+### 7.1 Create the cluster and load images
 
 ```bash
-# local cluster
-kind create cluster --name agentfault
-kind load docker-image agentfault/dashboard:dev agentfault/worker:dev
+# build the images first (Section 6)
+docker build -f Dockerfile.dashboard -t agentfault/dashboard:dev .
+docker build -f Dockerfile.worker    -t agentfault/worker:dev .
 
-# metrics-server is required for the CPU-based HPA
+kind create cluster --name agentfault --image kindest/node:v1.31.0
+kind load docker-image agentfault/dashboard:dev agentfault/worker:dev
+```
+
+### 7.2 metrics-server (required for the CPU-based HPA)
+
+```bash
 kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 kubectl patch -n kube-system deployment metrics-server --type=json \
   -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
-
-# install the chart
-helm install agentfault deploy/helm/agentfault
-
-kubectl get pods,svc,hpa
-kubectl port-forward svc/agentfault-agentfault-dashboard 8000:8000
 ```
 
-The worker HPA scales `1 → 6` replicas at 60% CPU utilisation. Generate load:
+### 7.3 Install the monitoring stack
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  -n monitoring --create-namespace \
+  -f deploy/monitoring/values-kube-prometheus-stack.yaml
+```
+
+The overlay enables the Grafana dashboard sidecar (`grafana_dashboard=1`,
+cross-namespace), discovers ServiceMonitors/PrometheusRules in any namespace,
+keeps `retention: 6h`, and disables `node-exporter` to stay light on a
+single-node cluster. Grafana credentials are the chart defaults: **admin / admin**.
+
+### 7.4 Install AgentFault (dashboard + autoscaled worker)
+
+```bash
+helm install agentfault deploy/helm/agentfault -n agentfault --create-namespace
+```
+
+With `dashboards.enabled=true` (the default) the chart creates a ConfigMap
+labelled `grafana_dashboard=1` containing both dashboards, which the Grafana
+sidecar imports into the `agentfault` folder automatically.
+
+### 7.5 Load the alert rule
+
+```bash
+kubectl apply -f deploy/monitoring/prometheus/agentfault-prometheusrule.yaml -n monitoring
+```
+
+Six rules land in the `agentfault.worker` group. If you change Prometheus, reload
+it: `curl -X POST http://localhost:9090/-/reload`.
+
+### 7.6 Port-forward everything
+
+```bash
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana     3000:80   &
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus  9090:9090 &
+kubectl port-forward -n agentfault svc/agentfault-agentfault-dashboard   8000:8000 &
+kubectl port-forward -n agentfault svc/agentfault-agentfault-worker      8080:8080 &
+```
+
+| URL | Component |
+|---|---|
+| http://localhost:3000 | Grafana (admin / admin) |
+| http://localhost:9090 | Prometheus |
+| http://localhost:8000/api/meta | Dashboard API |
+| http://localhost:8080/metrics | Worker Prometheus metrics |
+| http://localhost:4173 | Frontend (from `npm run preview`, Section 5) |
+
+Grafana dashboards (folder `agentfault`):
+
+- **AgentFault Replay Workers** (`/d/agentfault-replay-workers`) — HPA
+  replicas, queue depth, throughput, job latency, success delta.
+- **AgentFault Cluster & Pods** (`/d/agentfault-cluster`) — nodes/pods at a
+  glance, cluster CPU & memory, per-pod CPU/memory, pod phases, restarts,
+  deployment replicas, requested-vs-used CPU/memory and CPU throttling. It uses
+  cAdvisor + kube-state-metrics only (no node-exporter), so it works with the
+  light overlay as-is.
+
+Verify the pods and autoscaler:
+
+```bash
+kubectl get pods,svc,hpa -A
+```
+
+### 7.7 Exercise the autoscaler
+
+The worker HPA scales `1 → 6` replicas at 60% CPU utilisation:
 
 ```bash
 kubectl exec deploy/agentfault-agentfault-worker -- \
   python -c "import urllib.request; urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:8080/sweep?passes=5', method='POST'))"
-kubectl get hpa -w
+kubectl get hpa agentfault-agentfault-worker -w
 ```
 
-Preview the rendered manifests without a cluster:
+### 7.8 Preview manifests without a cluster
 
 ```bash
 helm template agentfault deploy/helm/agentfault
 helm lint deploy/helm/agentfault
+```
+
+### 7.9 Tear down
+
+```bash
+kind delete cluster --name agentfault
 ```
 
 ---
@@ -235,9 +324,17 @@ helm lint deploy/helm/agentfault
 - **Alerts:** `deploy/monitoring/prometheus/agentfault-prometheusrule.yaml`
   (6 rules). Validate with
   `promtool check rules` on the extracted `spec.groups`.
-- **Grafana board:** `deploy/helm/agentfault/dashboards/agentfault-workers.json`
-  (10 panels), shipped as a sidecar-importable ConfigMap
-  (`grafana_dashboard: "1"`) when `dashboards.enabled=true`.
+- **Grafana boards** (shipped as a sidecar-importable ConfigMap
+  `grafana_dashboard: "1"` when `dashboards.enabled=true`, into the `agentfault`
+  folder):
+  - `deploy/helm/agentfault/dashboards/agentfault-workers.json` — **Replay
+    Workers** (10 panels): HPA replicas, queue depth, throughput, job latency,
+    success delta.
+  - `deploy/helm/agentfault/dashboards/agentfault-cluster.json` — **Cluster &
+    Pods** (14 panels): nodes/pods, cluster CPU & memory, per-pod CPU/memory,
+    pod phases, restarts, deployment replicas, requested-vs-used resources and
+    CPU throttling. Uses cAdvisor + kube-state-metrics only (works with
+    `node-exporter` disabled).
 - **kube-prometheus-stack overlay:**
   `deploy/monitoring/values-kube-prometheus-stack.yaml`.
 
@@ -263,7 +360,7 @@ dashboard/   FastAPI dataset/aggregation API
 frontend/    React SPA (replay + propagation views)
 dataset/     AgentFault-500 release + version metadata
 scripts/     generation, replay, export/verify, demo
-deploy/      Helm chart, HPA, ServiceMonitor, Prometheus rules, Grafana board
+deploy/      Helm chart, HPA, ServiceMonitor, Prometheus rules, Grafana boards
 tests/       unit + end-to-end tests
 docs/        draft report
 ```
