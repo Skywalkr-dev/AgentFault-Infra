@@ -3,8 +3,8 @@ import { STEP_TYPE_ORDER, FAULT_GROUPS } from "../../lib/taxonomy.js";
 
 function Select({ label, value, onChange, options, placeholder }) {
   return (
-    <label className="field">
-      <span className="field__label">{label}</span>
+    <label className="ctl">
+      <span className="ctl__label">{label}</span>
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         {(options ?? []).map((o) => (
           <option key={o.value} value={o.value}>
