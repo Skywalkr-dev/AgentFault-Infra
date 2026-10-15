@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Expand, Shrink, GitCompareArrows, Sparkles, Bug } from "lucide-react";
+import { Expand, Shrink, GitCompareArrows, CircleDot, Bug } from "lucide-react";
 import { Badge } from "../shared/Badge.jsx";
 import { StepCard, StepSlot } from "./StepCard.jsx";
 import { alignSequences, stepFieldChanges } from "../../lib/diff.js";
@@ -60,7 +60,7 @@ export function CompareView({ baseline, injected }) {
         <div className="compare__col">
           <div className="compare__colhead compare__colhead--base">
             <span className="compare__coltag">
-              <Sparkles size={13} /> baseline
+              <CircleDot size={13} /> baseline
             </span>
             <Badge tone="cyan">NATURAL</Badge>
             <span className="compare__colcount">{baseline.numSteps} steps</span>
