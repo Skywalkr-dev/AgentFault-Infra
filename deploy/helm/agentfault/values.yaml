@@ -63,6 +63,7 @@ serviceMonitor:
 # Ship the Grafana worker dashboard as a sidecar-importable ConfigMap.
 dashboards:
   enabled: true
+  folder: agentfault
 
 nameOverride: ""
 fullnameOverride: ""

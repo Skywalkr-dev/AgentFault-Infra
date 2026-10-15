@@ -7,7 +7,7 @@ metadata:
     {{- include "agentfault.labels" . | nindent 4 }}
     grafana_dashboard: "1"
   annotations:
-    grafana-folder: /agentfault
+    grafana-folder: {{ .Values.dashboards.folder | default "agentfault" }}
 data:
   agentfault-workers.json: |-
 {{ .Files.Get "dashboards/agentfault-workers.json" | indent 4 }}
