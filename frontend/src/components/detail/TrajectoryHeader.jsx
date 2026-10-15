@@ -9,7 +9,7 @@ function MetaItem({ k, v, mono }) {
   return (
     <div className="meta">
       <span className="meta__k">{k}</span>
-      <span className={`meta__v ${mono ? "meta__v--mono" : ""}`}>{v || "—"}</span>
+      <span className={`meta__v ${mono ? "meta__v--mono" : ""}`} title={v || undefined}>{v || "—"}</span>
     </div>
   );
 }
