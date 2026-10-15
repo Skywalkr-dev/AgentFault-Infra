@@ -207,6 +207,18 @@ Tested versions: `kind` 0.24.0 with node image `kindest/node:v1.31.0`,
 Helm 3.16+, `kube-prometheus-stack` chart 92.7.0 (app v0.94.1) and the
 `agentfault` chart 0.1.0.
 
+The whole sequence is wrapped by [`start-cluster.sh`](start-cluster.sh), which is
+idempotent, reuses anything already running and prints every port when it
+finishes:
+
+```bash
+./start-cluster.sh            # cluster + monitoring + app + port-forwards + frontend
+./start-cluster.sh --stop     # stop the port-forwards and frontend
+./start-cluster.sh --delete   # also delete the kind cluster
+```
+
+The manual steps below are exactly what the script performs.
+
 ### 7.1 Create the cluster and load images
 
 ```bash
